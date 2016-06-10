@@ -36,6 +36,7 @@ import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import java.lang.ref.WeakReference;
+import java.util.Calendar;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
@@ -89,12 +90,12 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mTextPaint;
         boolean mAmbient;
-        Time mTime;
+        private Calendar mCalendar;
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mTime.clear(intent.getStringExtra("time-zone"));
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             }
         };
         int mTapCount;
@@ -125,9 +126,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
 
             mTextPaint = new Paint();
-            mTextPaint = createTextPaint(resources.getColor(R.color.digital_text));
+            mTextPaint = createTextPaint(resources.getColor(R.color.primary_text));
 
-            mTime = new Time();
+            mCalendar = Calendar.getInstance();
         }
 
         @Override
@@ -152,8 +153,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 registerReceiver();
 
                 // Update time zone in case it changed while we weren't visible.
-                mTime.clear(TimeZone.getDefault().getID());
-                mTime.setToNow();
+                mCalendar.setTimeZone(TimeZone.getDefault());
+                invalidate();
             } else {
                 unregisterReceiver();
             }
@@ -257,12 +258,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             }
 
             // Draw H:MM in ambient mode or H:MM:SS in interactive mode.
-            mTime.setToNow();
-            String text = mAmbient
-                    ? String.format("%d:%02d", mTime.hour, mTime.minute)
-                    : String.format("%d:%02d:%02d", mTime.hour, mTime.minute, mTime.second);
-            canvas.drawText(text, mXOffset, mYOffset, mTextPaint);
+            long now = System.currentTimeMillis();
+            mCalendar.setTimeInMillis(now);
+
+            String time = mAmbient
+                    ? String.format("%tR", mCalendar)
+                    : String.format("%tT", mCalendar);
+            canvas.drawText(time, mXOffset, mYOffset, mTextPaint);
         }
+
+
 
         /**
          * Starts the {@link #mUpdateTimeHandler} timer if it should be running and isn't currently
