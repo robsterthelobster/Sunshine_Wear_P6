@@ -3,7 +3,7 @@
     <color name="background">@color/primary</color>
     <color name="background2">#000088</color>
     <color name="primary_text">#ffffff</color>
-    <color name="secondary_text">#ababab</color>
+    <color name="secondary_text">#dcdcdc</color>
 
     <!-- using the "Light Blue" Material Palette -->
     <color name="primary">#03A9F4</color>  <!-- 500 -->
