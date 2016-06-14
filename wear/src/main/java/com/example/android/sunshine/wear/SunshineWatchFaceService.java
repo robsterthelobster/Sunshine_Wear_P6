@@ -102,8 +102,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         };
         int mTapCount;
 
-        float mXOffset;
-        float mYOffset;
+        float timeXOffset;
+        float timeYOffset;
+        float dateXOffset;
+        float dateYOffset;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -122,7 +124,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .setAcceptsTapEvents(true)
                     .build());
             Resources resources = SunshineWatchFaceService.this.getResources();
-            mYOffset = resources.getDimension(R.dimen.digital_y_offset);
+            timeYOffset = resources.getDimension(R.dimen.time_y_offset);
+            dateYOffset = resources.getDimension(R.dimen.date_y_offset);
 
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(resources.getColor(R.color.background));
@@ -192,13 +195,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             // Load resources that have alternate values for round watches.
             Resources resources = SunshineWatchFaceService.this.getResources();
             boolean isRound = insets.isRound();
-            mXOffset = resources.getDimension(isRound
-                    ? R.dimen.digital_x_offset_round : R.dimen.digital_x_offset);
-            float textSize = resources.getDimension(isRound
-                    ? R.dimen.digital_text_size_round : R.dimen.digital_text_size);
+            timeXOffset = resources.getDimension(isRound
+                    ? R.dimen.time_x_offset_round : R.dimen.time_x_offset);
+            dateXOffset = resources.getDimension(isRound
+                    ? R.dimen.date_x_offset_round : R.dimen.date_x_offset);
+            float timeTextSize = resources.getDimension(isRound
+                    ? R.dimen.time_text_size_round : R.dimen.time_text_size);
+            float dateTextSize = resources.getDimension(isRound
+                    ? R.dimen.date_text_size_round : R.dimen.date_text_size);
 
-            mTimePaint.setTextSize(textSize);
-            mDatePaint.setTextSize(textSize/2);
+            mTimePaint.setTextSize(timeTextSize);
+            mDatePaint.setTextSize(dateTextSize);
         }
 
         @Override
@@ -272,10 +279,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 //                    : String.format("%tT", mCalendar);
 
             String time = String.format("%tR", mCalendar);
-            String date = dateFormat.format(mCalendar.getTime());
+            String date = dateFormat.format(mCalendar.getTime()).toUpperCase();
 
-            canvas.drawText(time, mXOffset, mYOffset, mTimePaint);
-            canvas.drawText(date, mXOffset, mYOffset + mTimePaint.getTextSize(), mDatePaint);
+            canvas.drawText(time, timeXOffset, timeYOffset, mTimePaint);
+            canvas.drawText(date, dateXOffset, dateYOffset, mDatePaint);
         }
 
 
