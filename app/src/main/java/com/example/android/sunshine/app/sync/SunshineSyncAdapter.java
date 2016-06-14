@@ -57,6 +57,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Random;
 import java.util.Vector;
 import java.util.concurrent.ExecutionException;
 
@@ -313,10 +314,6 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
             // now we work exclusively in UTC
             dayTime = new Time();
 
-            double high = 0;
-            double low = 0;
-            int weatherId = 0;
-
             for(int i = 0; i < weatherArray.length(); i++) {
                 // These are the values that will be collected.
                 long dateTime;
@@ -324,7 +321,10 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 int humidity;
                 double windSpeed;
                 double windDirection;
+                double high = 0;
+                double low = 0;
 
+                int weatherId = 0;
                 String description;
 
                 // Get the JSON object representing the day
@@ -365,6 +365,11 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 weatherValues.put(WeatherContract.WeatherEntry.COLUMN_WEATHER_ID, weatherId);
 
                 cVVector.add(weatherValues);
+
+                // latest and newest forecast
+                if(i == 0){
+                    sendWeatherToWear(high, low, weatherId);
+                }
             }
 
             int inserted = 0;
@@ -382,7 +387,6 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
                 updateWidgets();
                 updateMuzei();
                 notifyWeather();
-                sendWeatherToWear(high, low, weatherId);
             }
             Log.d(LOG_TAG, "Sync Complete. " + cVVector.size() + " Inserted");
             setLocationStatus(getContext(), LOCATION_STATUS_OK);
@@ -398,9 +402,10 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
         System.out.println("Send weather to wear");
 
         PutDataMapRequest dataMap = PutDataMapRequest.create("/weather-data");
-        dataMap.getDataMap().putDouble("high", 17);
-        dataMap.getDataMap().putDouble("low", 13);
-        dataMap.getDataMap().putDouble("art_id", 17);
+        dataMap.getDataMap().putLong("Time",System.currentTimeMillis());
+        dataMap.getDataMap().putDouble("high", high);
+        dataMap.getDataMap().putDouble("low", low);
+        dataMap.getDataMap().putDouble("art_id", weatherId);
         PutDataRequest request = dataMap.asPutDataRequest();
         request.setUrgent();
         Wearable.DataApi.putDataItem(mGoogleApiClient, request)

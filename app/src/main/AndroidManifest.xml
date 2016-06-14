@@ -34,6 +34,7 @@
     <!-- Permissions required for Google Wear -->
     <uses-permission
         android:name="com.google.android.permission.PROVIDE_BACKGROUND" />
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
 
     <permission
         android:name="com.example.android.sunshine.app.permission.C2D_MESSAGE"

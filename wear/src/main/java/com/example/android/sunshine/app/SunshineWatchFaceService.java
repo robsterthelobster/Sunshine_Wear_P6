@@ -35,12 +35,15 @@ import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
+import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.Wearable;
+import com.google.android.gms.wearable.WearableListenerService;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -113,6 +116,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         float dateXOffset;
         float dateYOffset;
 
+        private GoogleApiClient mGoogleApiClient;
+
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -138,6 +143,11 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .setShowSystemUiTime(false)
                     .setAcceptsTapEvents(true)
                     .build());
+
+            mGoogleApiClient = new GoogleApiClient.Builder(SunshineWatchFaceService.this)
+                    .addApi(Wearable.API)
+                    .build();
+            Wearable.DataApi.addListener(mGoogleApiClient, this);
 
             Resources resources = SunshineWatchFaceService.this.getResources();
             timeYOffset = resources.getDimension(R.dimen.time_y_offset);
@@ -173,13 +183,17 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             if (visible) {
                 registerReceiver();
-
+                mGoogleApiClient.connect();
                 // Update time zone in case it changed while we weren't visible.
                 mCalendar.setTimeZone(TimeZone.getDefault());
                 dateFormat.setTimeZone(mCalendar.getTimeZone());
                 invalidate();
             } else {
                 unregisterReceiver();
+
+                if (mGoogleApiClient != null && mGoogleApiClient.isConnected()) {
+                    mGoogleApiClient.disconnect();
+                }
             }
 
             // Whether the timer should be running depends on whether we're visible (as well as
@@ -342,6 +356,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
             Log.d(TAG, "onDataChanged: " + dataEventBuffer);
+            System.out.println("data");
 
             for (DataEvent event : dataEventBuffer) {
                 if (event.getType() == DataEvent.TYPE_CHANGED) {
