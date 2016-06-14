@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.example.android.sunshine.wear;
+package com.example.android.sunshine.app;
 
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -31,8 +31,16 @@ import android.os.Handler;
 import android.os.Message;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.WindowInsets;
+
+import com.google.android.gms.wearable.DataApi;
+import com.google.android.gms.wearable.DataEvent;
+import com.google.android.gms.wearable.DataEventBuffer;
+import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataMap;
+import com.google.android.gms.wearable.DataMapItem;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -84,7 +92,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine {
+    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener{
+
+        final String TAG = "SunshineWatchFaceEngine";
+
         final Handler mUpdateTimeHandler = new EngineHandler(this);
         boolean mRegisteredTimeZoneReceiver = false;
         Paint mBackgroundPaint;
@@ -92,6 +103,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         Paint mDatePaint;
         SimpleDateFormat dateFormat;
         private Calendar mCalendar;
+        int mTapCount;
+
+        double forecastHigh, forecastLow;
+        int forecastId;
+
+        float timeXOffset;
+        float timeYOffset;
+        float dateXOffset;
+        float dateYOffset;
+
         final BroadcastReceiver mTimeZoneReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
@@ -100,12 +121,6 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 invalidate();
             }
         };
-        int mTapCount;
-
-        float timeXOffset;
-        float timeYOffset;
-        float dateXOffset;
-        float dateYOffset;
 
         /**
          * Whether the display supports fewer bits for each color in ambient mode. When true, we
@@ -123,6 +138,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .setShowSystemUiTime(false)
                     .setAcceptsTapEvents(true)
                     .build());
+
             Resources resources = SunshineWatchFaceService.this.getResources();
             timeYOffset = resources.getDimension(R.dimen.time_y_offset);
             dateYOffset = resources.getDimension(R.dimen.date_y_offset);
@@ -283,6 +299,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             canvas.drawText(time, timeXOffset, timeYOffset, mTimePaint);
             canvas.drawText(date, dateXOffset, dateYOffset, mDatePaint);
+
+            canvas.drawText("high " + forecastHigh, dateXOffset, dateYOffset+mDatePaint.getTextSize(), mDatePaint);
+            canvas.drawText("low " + forecastLow, dateXOffset, dateYOffset+mDatePaint.getTextSize()*2, mDatePaint);
+            canvas.drawText("art " + forecastId, dateXOffset, dateYOffset+mDatePaint.getTextSize()*3, mDatePaint);
         }
 
 
@@ -316,6 +336,28 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 long delayMs = INTERACTIVE_UPDATE_RATE_MS
                         - (timeMs % INTERACTIVE_UPDATE_RATE_MS);
                 mUpdateTimeHandler.sendEmptyMessageDelayed(MSG_UPDATE_TIME, delayMs);
+            }
+        }
+
+        @Override
+        public void onDataChanged(DataEventBuffer dataEventBuffer) {
+            Log.d(TAG, "onDataChanged: " + dataEventBuffer);
+
+            for (DataEvent event : dataEventBuffer) {
+                if (event.getType() == DataEvent.TYPE_CHANGED) {
+                    // DataItem changed
+                    Log.v("myTag", "DataMap received on watch: " + DataMapItem.fromDataItem(event.getDataItem()).getDataMap());
+                    DataItem item = event.getDataItem();
+                    if (item.getUri().getPath().compareTo("/weather-data") == 0) {
+                        DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+
+                        forecastHigh = dataMap.getDouble("high");
+                        forecastLow = dataMap.getDouble("low");
+                        forecastId = dataMap.getInt("art_id");
+
+                        System.out.println("high: " + forecastHigh + ", low: " +forecastLow + ", id: " + forecastId);
+                    }
+                }
             }
         }
     }
