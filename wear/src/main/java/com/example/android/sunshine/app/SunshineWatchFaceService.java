@@ -21,14 +21,19 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.res.Resources;
+import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Message;
+import android.support.annotation.NonNull;
 import android.support.wearable.watchface.CanvasWatchFaceService;
 import android.support.wearable.watchface.WatchFaceStyle;
 import android.util.Log;
@@ -36,14 +41,18 @@ import android.view.SurfaceHolder;
 import android.view.WindowInsets;
 
 import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.android.gms.common.api.PendingResult;
+import com.google.android.gms.common.api.ResultCallback;
 import com.google.android.gms.wearable.DataApi;
 import com.google.android.gms.wearable.DataEvent;
 import com.google.android.gms.wearable.DataEventBuffer;
 import com.google.android.gms.wearable.DataItem;
+import com.google.android.gms.wearable.DataItemBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
+import com.google.android.gms.wearable.NodeApi;
+import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
-import com.google.android.gms.wearable.WearableListenerService;
 
 import java.lang.ref.WeakReference;
 import java.text.SimpleDateFormat;
@@ -95,7 +104,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         }
     }
 
-    private class Engine extends CanvasWatchFaceService.Engine implements DataApi.DataListener{
+    private class Engine extends CanvasWatchFaceService.Engine
+            implements DataApi.DataListener, ResultCallback<DataItemBuffer> {
 
         final String TAG = "SunshineWatchFaceEngine";
 
@@ -108,8 +118,9 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         private Calendar mCalendar;
         int mTapCount;
 
-        double forecastHigh, forecastLow;
-        int forecastId;
+        String forecastHigh = "";
+        String forecastLow = "";
+        Bitmap weatherIcon;
 
         float timeXOffset;
         float timeYOffset;
@@ -149,12 +160,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .build();
             Wearable.DataApi.addListener(mGoogleApiClient, this);
 
+            PendingResult<DataItemBuffer> pendingResult
+                    = Wearable.DataApi.getDataItems(mGoogleApiClient, getUriForDataItem());
+            pendingResult.setResultCallback(this);
+
             Resources resources = SunshineWatchFaceService.this.getResources();
             timeYOffset = resources.getDimension(R.dimen.time_y_offset);
             dateYOffset = resources.getDimension(R.dimen.date_y_offset);
 
             mBackgroundPaint = new Paint();
-            mBackgroundPaint.setColor(resources.getColor(R.color.background));
+            mBackgroundPaint.setColor(getColor(R.color.background));
 
             mTimePaint = createTextPaint(getColor(R.color.primary_text));
             mDatePaint = createTextPaint(getColor(R.color.secondary_text));
@@ -316,7 +331,10 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
 
             canvas.drawText("high " + forecastHigh, dateXOffset, dateYOffset+mDatePaint.getTextSize(), mDatePaint);
             canvas.drawText("low " + forecastLow, dateXOffset, dateYOffset+mDatePaint.getTextSize()*2, mDatePaint);
-            canvas.drawText("art " + forecastId, dateXOffset, dateYOffset+mDatePaint.getTextSize()*3, mDatePaint);
+            if(weatherIcon != null){
+                canvas.drawBitmap(weatherIcon, dateXOffset,dateYOffset+mDatePaint.getTextSize()*2, mDatePaint);
+            }
+
         }
 
 
@@ -356,24 +374,49 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onDataChanged(DataEventBuffer dataEventBuffer) {
             Log.d(TAG, "onDataChanged: " + dataEventBuffer);
-            System.out.println("data");
 
             for (DataEvent event : dataEventBuffer) {
                 if (event.getType() == DataEvent.TYPE_CHANGED) {
                     // DataItem changed
-                    Log.v("myTag", "DataMap received on watch: " + DataMapItem.fromDataItem(event.getDataItem()).getDataMap());
                     DataItem item = event.getDataItem();
                     if (item.getUri().getPath().compareTo("/weather-data") == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-
-                        forecastHigh = dataMap.getDouble("high");
-                        forecastLow = dataMap.getDouble("low");
-                        forecastId = dataMap.getInt("art_id");
-
-                        System.out.println("high: " + forecastHigh + ", low: " +forecastLow + ", id: " + forecastId);
+                        updateForcast(dataMap);
                     }
                 }
             }
         }
+
+        @Override
+        public void onResult(@NonNull DataItemBuffer dataItemBuffer) {
+            if(dataItemBuffer.getStatus().isSuccess()){
+                for (DataItem item : dataItemBuffer) {
+                    if (item.getUri().getPath().compareTo("/weather-data") == 0) {
+                        DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
+                        updateForcast(dataMap);
+                    }
+                }
+            }
+        }
+
+        private void updateForcast(DataMap dataMap){
+            forecastHigh = dataMap.getString("high");
+            forecastLow = dataMap.getString("low");
+
+            int iconId = Utility
+                    .getIconResourceForWeatherCondition(dataMap.getInt("art_id"));
+            Resources resources = SunshineWatchFaceService.this.getResources();
+            Drawable backgroundDrawable = resources.getDrawable(iconId, null);
+            weatherIcon = ((BitmapDrawable) backgroundDrawable).getBitmap();
+        }
+
+        private Uri getUriForDataItem() {
+            return new Uri.Builder()
+                    .scheme(PutDataRequest.WEAR_URI_SCHEME)
+                    .path("/weather-data")
+                    .build();
+        }
+
     }
+
 }

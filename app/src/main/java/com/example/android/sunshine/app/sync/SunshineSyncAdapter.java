@@ -399,13 +399,12 @@ public class SunshineSyncAdapter extends AbstractThreadedSyncAdapter {
     }
 
     private void sendWeatherToWear(double high, double low, int weatherId){
-        System.out.println("Send weather to wear");
+        Log.d(LOG_TAG, "sendWeatherToWear");
 
         PutDataMapRequest dataMap = PutDataMapRequest.create("/weather-data");
-        dataMap.getDataMap().putLong("Time",System.currentTimeMillis());
-        dataMap.getDataMap().putDouble("high", high);
-        dataMap.getDataMap().putDouble("low", low);
-        dataMap.getDataMap().putDouble("art_id", weatherId);
+        dataMap.getDataMap().putString("high", Utility.formatTemperature(getContext(), high));
+        dataMap.getDataMap().putString("low", Utility.formatTemperature(getContext(), low));
+        dataMap.getDataMap().putInt("art_id", weatherId);
         PutDataRequest request = dataMap.asPutDataRequest();
         request.setUrgent();
         Wearable.DataApi.putDataItem(mGoogleApiClient, request)
