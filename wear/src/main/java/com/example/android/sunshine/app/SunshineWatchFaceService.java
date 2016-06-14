@@ -50,7 +50,6 @@ import com.google.android.gms.wearable.DataItem;
 import com.google.android.gms.wearable.DataItemBuffer;
 import com.google.android.gms.wearable.DataMap;
 import com.google.android.gms.wearable.DataMapItem;
-import com.google.android.gms.wearable.NodeApi;
 import com.google.android.gms.wearable.PutDataRequest;
 import com.google.android.gms.wearable.Wearable;
 
@@ -114,6 +113,8 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         Paint mBackgroundPaint;
         Paint mTimePaint;
         Paint mDatePaint;
+        Paint mLowPaint;
+        Paint mHighPaint;
         SimpleDateFormat dateFormat;
         private Calendar mCalendar;
         int mTapCount;
@@ -126,6 +127,12 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         float timeYOffset;
         float dateXOffset;
         float dateYOffset;
+        float tempYOffset;
+        float highXOffset;
+        float lowXOffset;
+        float iconXOffset;
+        float iconYOffset;
+        float lineY;
 
         private GoogleApiClient mGoogleApiClient;
 
@@ -168,14 +175,25 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             timeYOffset = resources.getDimension(R.dimen.time_y_offset);
             dateYOffset = resources.getDimension(R.dimen.date_y_offset);
 
+            float tempTextSize = resources.getDimension(R.dimen.temp_text_size);
+            tempYOffset = resources.getDimension(R.dimen.temp_y_offset);
+
             mBackgroundPaint = new Paint();
             mBackgroundPaint.setColor(getColor(R.color.background));
+            //default weather
+//            Drawable backgroundDrawable = resources.getDrawable(R.drawable.ic_clear, null);
+//            weatherIcon = ((BitmapDrawable) backgroundDrawable).getBitmap();
 
             mTimePaint = createTextPaint(getColor(R.color.primary_text));
             mDatePaint = createTextPaint(getColor(R.color.secondary_text));
 
             mCalendar = Calendar.getInstance();
             dateFormat = new SimpleDateFormat("EEE, MMM dd yyyy");
+
+            mHighPaint = new Paint(mTimePaint);
+            mHighPaint.setTextSize(tempTextSize);
+            mLowPaint = new Paint(mDatePaint);
+            mLowPaint.setTextSize(tempTextSize-2);
         }
 
         @Override
@@ -248,6 +266,16 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     ? R.dimen.time_text_size_round : R.dimen.time_text_size);
             float dateTextSize = resources.getDimension(isRound
                     ? R.dimen.date_text_size_round : R.dimen.date_text_size);
+            lowXOffset = resources.getDimension(isRound
+                    ? R.dimen.low_x_offset_round : R.dimen.low_x_offset);
+            highXOffset = resources.getDimension(isRound
+                    ? R.dimen.high_x_offset_round : R.dimen.high_x_offset);
+            iconXOffset = resources.getDimension(isRound
+                    ? R.dimen.icon_x_offset_round : R.dimen.icon_x_offset);
+            lineY = resources.getDimension(isRound
+                    ? R.dimen.line_y_round : R.dimen.line_y);
+            iconYOffset = resources.getDimension(isRound
+                    ? R.dimen.icon_y_offset_round : R.dimen.icon_y_offset);
 
             mTimePaint.setTextSize(timeTextSize);
             mDatePaint.setTextSize(dateTextSize);
@@ -268,11 +296,14 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
         @Override
         public void onAmbientModeChanged(boolean inAmbientMode) {
             super.onAmbientModeChanged(inAmbientMode);
+            Log.d("ambient mode: ", inAmbientMode+"");
 
             if (mLowBitAmbient) {
                 boolean antiAlias = !inAmbientMode;
                 mTimePaint.setAntiAlias(antiAlias);
                 mDatePaint.setAntiAlias(antiAlias);
+                mHighPaint.setAntiAlias(antiAlias);
+                mLowPaint.setAntiAlias(antiAlias);
             }
 
             invalidate();
@@ -319,22 +350,20 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
             long now = System.currentTimeMillis();
             mCalendar.setTimeInMillis(now);
 
-//            String time = isInAmbientMode()
-//                    ? String.format("%tR", mCalendar)
-//                    : String.format("%tT", mCalendar);
-
             String time = String.format("%tR", mCalendar);
             String date = dateFormat.format(mCalendar.getTime()).toUpperCase();
 
             canvas.drawText(time, timeXOffset, timeYOffset, mTimePaint);
             canvas.drawText(date, dateXOffset, dateYOffset, mDatePaint);
 
-            canvas.drawText("high " + forecastHigh, dateXOffset, dateYOffset+mDatePaint.getTextSize(), mDatePaint);
-            canvas.drawText("low " + forecastLow, dateXOffset, dateYOffset+mDatePaint.getTextSize()*2, mDatePaint);
-            if(weatherIcon != null){
-                canvas.drawBitmap(weatherIcon, dateXOffset,dateYOffset+mDatePaint.getTextSize()*2, mDatePaint);
-            }
+            canvas.drawLine(dateXOffset, lineY,
+                    dateXOffset + mDatePaint.measureText(date), lineY, mDatePaint);
 
+            canvas.drawText(forecastHigh, highXOffset, tempYOffset, mHighPaint);
+            canvas.drawText(forecastLow, lowXOffset, tempYOffset, mLowPaint);
+            if(weatherIcon != null){
+                canvas.drawBitmap(weatherIcon, iconXOffset, iconYOffset, mDatePaint);
+            }
         }
 
 
@@ -381,7 +410,7 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     DataItem item = event.getDataItem();
                     if (item.getUri().getPath().compareTo("/weather-data") == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                        updateForcast(dataMap);
+                        updateForecast(dataMap);
                     }
                 }
             }
@@ -393,13 +422,15 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                 for (DataItem item : dataItemBuffer) {
                     if (item.getUri().getPath().compareTo("/weather-data") == 0) {
                         DataMap dataMap = DataMapItem.fromDataItem(item).getDataMap();
-                        updateForcast(dataMap);
+                        updateForecast(dataMap);
                     }
                 }
             }
+            // clean up
+            dataItemBuffer.release();
         }
 
-        private void updateForcast(DataMap dataMap){
+        private void updateForecast(DataMap dataMap){
             forecastHigh = dataMap.getString("high");
             forecastLow = dataMap.getString("low");
 
@@ -416,7 +447,5 @@ public class SunshineWatchFaceService extends CanvasWatchFaceService {
                     .path("/weather-data")
                     .build();
         }
-
     }
-
 }
