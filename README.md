@@ -1,7 +1,14 @@
-Advanced Android Sample App
+Advanced Android Sample App for Android Wear
 ===================================
 
 Synchronizes weather information from OpenWeatherMap on Android Phones and Tablets. Used in the Udacity Advanced Android course.
+
+Implemented Wear Support: Sunshine is now available on Android Wear as a watch face.  Calendar, date, and time are all displayed along with the weather.
+
+Screenshots:
+------------
+![Watch Face](/screens/round.png?raw=true "Round Watch Face")
+
 
 Pre-requisites
 --------------
